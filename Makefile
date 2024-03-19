@@ -37,14 +37,14 @@ run: $(OBJ)
 clean:
 	@echo "==> Cleaning objects and executable"
 	@rm -f obj/*.o
-	@rm -f run.exe
+	@rm -f run
 
 
 uninstall:
 	@echo "==> Uninstalling fitter"
 	@rm -f obj/*.o obj/*.so obj/*.d obj/*.pcm
 	@rm -f ext/*.so ext/*.d ext/*.pcm
-	@rm -f run.exe
+	@rm -f run
 
 
 # $@ references the target file name
