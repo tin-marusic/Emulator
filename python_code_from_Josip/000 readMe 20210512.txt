@@ -1,0 +1,27 @@
+Hi Ante,
+
+I attached the updated tower-module mapping file. The files with "CE-H" prefix now include scintillators. Since the LpGBT link mapping is also updated, the "CE-E" files have also changed. 
+
+So I suppose your existing code should work with the new files given that I used the same format. You may or may not need to change one thing depending on how your algorithm works. There are new tower names in the CE-H file, for example in these lines:
+had-eta-2-phi2 0
+had-eta-1-phi2 2 72 2 84 2
+had-eta-2-phi3 0
+had-eta-1-phi3 2 72 2 84 2
+had-eta-2-phi4 0
+had-eta-1-phi4 0
+
+These are towers that exist in scintillators but not in silicons (2 eta bins in the inner side of the HGCal). I named their eta value as -2 and -1; so now instead of eta0, eta1, eta2,... in the tower names, we have eta-2, eta-1, eta0, eta1, eta2,... . So you should just make sure the algorithm handles the minus signs for eta, if needed.
+
+Please let me know if you have any questions.
+
+Best,
+Mohammad
+
+You can ignore the next few lines. I just added them for the record so that I would be able to find them later.
+- Silicons split to 1/8s
+- Scintillators split to 1/16s
+- LpGBT link mapping from Samuel: chi2 includes the number of towers (silicon-only) and number of modules
+
+
+
+

@@ -333,8 +333,8 @@ def getParametersFromVhFile(inputFileName):
 #ucitavam podatke iz Matlaba koji su generirani sa skriptom za Vivado, ali daju i MAT otput za ovaj testbench
 #U DRUGOJ VERZIJI - ucitavam *.vh file koji sadrzi odgovrajuci human redable format (HRF) koji se koristi i za kod zbog neefikasnog binarnog kodiranja kada govorimo o osminama
 #ime je za sada hard-kodirano ali to kada sve istestiram za prvu verziju onda cu promijeniti
-fileName_CE_E = 'CE_E_15_new.vh'  # matrica arhitekture za CE_E ulaze
-fileName_CE_H = 'CE_H_15_new.vh'  # matrica arhitekture za CE_H ulaze
+fileName_CE_E = 'CE_E_13_v6.vh'  # matrica arhitekture za CE_E ulaze
+fileName_CE_H = 'CE_H_13_v6.vh'  # matrica arhitekture za CE_H ulaze
 
 #Definiram koliko ulaza ima na svakom od CE_E i CE_H "kanala" - za sada polazim od pretpostavke da ih ne može biti više od 256 (u budućnosti će biti i do par tisuća). Ovo je ujedno i broj shift bitova koji će se generirati za svaki kanal
 #ovo trebam napraviti tako da ucitam file i onda iz drugog retka izvucem brojeve (sada sam ih rucno unio temeljem *.vh datoteka koje mi je Ante dao)
@@ -433,13 +433,14 @@ for i in range(len(summedValues_CE_H)):
 #    f.writelines("%s" %line for line in inputArrayDec_CE_E)
 
 #ulazni podaci
+"""
 with open(fileName_CE_E + '_inputData_CE_E_1' + '.txt', 'w') as f:
     for i in range (len(inputArrayDec_CE_E)):
         if i == len(inputArrayDec_CE_E)-1:
             f.write(str(inputArrayDec_CE_E[i]))
         else:
             f.write(str(inputArrayDec_CE_E[i]) + ', \n')
-
+            
 #shift bitovi
 with open(fileName_CE_E + '_shiftData_CE_E_1' + '.txt', 'w') as f:
     for i in range (len(shiftArrayDec_CE_E)):
@@ -490,7 +491,7 @@ with open(fileName_CE_E + '_trimData_CE_E_1' + '.txt', 'w') as f:
         else:
             f.write(str(trimmedSumsDec_CE_E[i]) + ', \n')
             #f.write(str(trimmedSums_CE_E[i]) + ', \n')
-
+"""
 #izlazni podaci
 with open(fileName_CE_E + '_outputData_CE_E_1' + '.txt', 'w') as f:
     for i in range (len(outputValuesDec_CE_E)):
@@ -505,6 +506,7 @@ with open(fileName_CE_E + '_outputData_CE_E_1' + '.txt', 'w') as f:
 #    f.writelines("%s" %line for line in inputArrayDec_CE_E)
 
 #ulazni podaci
+"""
 with open(fileName_CE_H + '_inputData_CE_H_1' + '.txt', 'w') as f:
     for i in range (len(inputArrayDec_CE_H)):
         if i == len(inputArrayDec_CE_H)-1:
@@ -562,7 +564,7 @@ with open(fileName_CE_H + '_trimData_CE_H_1' + '.txt', 'w') as f:
             f.write(str(trimmedSumsDec_CE_H[i]))
         else:
             f.write(str(trimmedSumsDec_CE_H[i]) + ', \n')
-
+"""
 #izlazni podaci
 with open(fileName_CE_H + '_outputData_CE_H_1' + '.txt', 'w') as f:
     for i in range (len(outputValuesDec_CE_H)):
