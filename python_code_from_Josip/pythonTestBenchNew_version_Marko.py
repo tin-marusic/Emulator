@@ -4,7 +4,7 @@ import re
 import copy
 import numpy as np
 import sys
-
+import os
 
 def generateInputEnergies(numberOfItems, lengthOfItems, outputLengthNextStep, manLength):
     output = []
@@ -329,246 +329,248 @@ def getParametersFromVhFile(inputFileName):
 #****************************
 #***************************************
 #********************************************
+def main(fileName_CE_E,fileName_CE_H):
+    os.chdir('../inputs')
+    #ucitavam podatke iz Matlaba koji su generirani sa skriptom za Vivado, ali daju i MAT otput za ovaj testbench
+    #U DRUGOJ VERZIJI - ucitavam *.vh file koji sadrzi odgovrajuci human redable format (HRF) koji se koristi i za kod zbog neefikasnog binarnog kodiranja kada govorimo o osminama
+    #ime je za sada hard-kodirano ali to kada sve istestiram za prvu verziju onda cu promijeniti
+    
+    #fileName_CE_E = 'CE_E_13_v6.vh'  # matrica arhitekture za CE_E ulaze
+    #fileName_CE_H = 'CE_H_13_v6.vh'  # matrica arhitekture za CE_H ulaze
 
-#ucitavam podatke iz Matlaba koji su generirani sa skriptom za Vivado, ali daju i MAT otput za ovaj testbench
-#U DRUGOJ VERZIJI - ucitavam *.vh file koji sadrzi odgovrajuci human redable format (HRF) koji se koristi i za kod zbog neefikasnog binarnog kodiranja kada govorimo o osminama
-#ime je za sada hard-kodirano ali to kada sve istestiram za prvu verziju onda cu promijeniti
-fileName_CE_E = 'CE_E_13_v6.vh'  # matrica arhitekture za CE_E ulaze
-fileName_CE_H = 'CE_H_13_v6.vh'  # matrica arhitekture za CE_H ulaze
+    #Definiram koliko ulaza ima na svakom od CE_E i CE_H "kanala" - za sada polazim od pretpostavke da ih ne može biti više od 256 (u budućnosti će biti i do par tisuća). Ovo je ujedno i broj shift bitova koji će se generirati za svaki kanal
+    #ovo trebam napraviti tako da ucitam file i onda iz drugog retka izvucem brojeve (sada sam ih rucno unio temeljem *.vh datoteka koje mi je Ante dao)
+    #in_E_num = 70
+    #in_H_num = 62
 
-#Definiram koliko ulaza ima na svakom od CE_E i CE_H "kanala" - za sada polazim od pretpostavke da ih ne može biti više od 256 (u budućnosti će biti i do par tisuća). Ovo je ujedno i broj shift bitova koji će se generirati za svaki kanal
-#ovo trebam napraviti tako da ucitam file i onda iz drugog retka izvucem brojeve (sada sam ih rucno unio temeljem *.vh datoteka koje mi je Ante dao)
-#in_E_num = 70
-#in_H_num = 62
+    #out_E_num = 440
+    #out_H_num = 49
 
-#out_E_num = 440
-#out_H_num = 49
+    in_E_num, out_E_num = getParametersFromVhFile(fileName_CE_E)
+    in_H_num, out_H_num = getParametersFromVhFile(fileName_CE_H)
 
-in_E_num, out_E_num = getParametersFromVhFile(fileName_CE_E)
-in_H_num, out_H_num = getParametersFromVhFile(fileName_CE_H)
+    #ovdje definiram broj bunch crossinga odnosno koliko redaka ce imati izlazne datoteke (sami broj izlaznih datoteka ostaje isit). Sve se radi za istu sumatorsku konfiguraciju, samo se mijenjaju ulazni podaci
+    nBunch = 5
+    filesCreatedFlag = False #izgleda da postoji + parametar koji ovo izbjegava - provjeriti
 
-#ovdje definiram broj bunch crossinga odnosno koliko redaka ce imati izlazne datoteke (sami broj izlaznih datoteka ostaje isit). Sve se radi za istu sumatorsku konfiguraciju, samo se mijenjaju ulazni podaci
-nBunch = 5
-filesCreatedFlag = False #izgleda da postoji + parametar koji ovo izbjegava - provjeriti
-
-#u ovoj matrici je nacin zbrajanja tj. spajanja ulaza sklopa na ulaze sumatora a i dalje na izlaze - u biti se koristi kod bloka sum_matrix(_v3)
-matVariable_CE_E = vhArchInputToArray(fileName_CE_E, out_E_num, in_E_num)
-matVariable_CE_H = vhArchInputToArray(fileName_CE_H, out_H_num, in_H_num)
-
-
-#ovo funkcija nije nužna za ispravan rad sklopa, ali provjerava da li su sve osmine za svaki od 256 ulaza raspojdeljene po izlazima, i ako nisu prekida izvođene i javlja grešku
-#funkcija za dodatnu provjeru ispravnosti arhitekture (prvenstveno MATLAB skripte, ali i funkcije vhArchToArray koja je ovdje napisana)
-#vhArchValidation(matVariable_CE_E, out_E_num, in_E_num)  #ZA SADA IZOSTAVLJAM JER MI SE ARHITEKTURA PROMIJENILA PA MI PRETPOSTAVKE VISE NE VRIJEDE I OVO FAILA
-#vhArchValidation(matVariable_CE_H, out_E_num, in_E_num)
-
-#generiram ulaze 
-#glavni ulaz je 256 8-bitnih ulaza (5 bitova je eksponent a 3 bita su mantisa) - ove stvari trebam snimiti u datoteku da Ante zna ponoviti test
-inputArray_CE_E = generateInputEnergies(in_E_num,8,25,3)
-inputArray_CE_H = generateInputEnergies(in_H_num,8,25,3)
-
-#generiram shift bitove
-shiftArray_CE_E = generateInputShifts(in_E_num,2)
-shiftArray_CE_H = generateInputShifts(in_H_num,2)
-
-#sada radim Float2Int prekodiranje
-decodedInputArray_CE_E = f2int(inputArray_CE_E, 8, 5, 25)
-decodedInputArray_CE_H = f2int(inputArray_CE_H, 8, 5, 25)
-
-#sada radim kalibraciju odnosno shiftanje
-calibtratedInputArray_CE_E = calibration(decodedInputArray_CE_E, shiftArray_CE_E, 28)
-calibtratedInputArray_CE_H = calibration(decodedInputArray_CE_H, shiftArray_CE_H, 28)
-
-#sada radim sumaciju 
-summedValues_CE_E = sumMatrixNew(calibtratedInputArray_CE_E, matVariable_CE_E, 32)
-summedValues_CE_H = sumMatrixNew(calibtratedInputArray_CE_H, matVariable_CE_H, 32)
-
-#sada radim trimming
-trimmedSums_CE_E = trimmSummationsNew(summedValues_CE_E, 19)
-trimmedSums_CE_H = trimmSummationsNew(summedValues_CE_H, 19)
-
-#sada radim pretvaranje u float
-outputValues_CE_E = int2f(trimmedSums_CE_E, 4, 8)
-outputValues_CE_H = int2f(trimmedSums_CE_H, 4, 8)
+    #u ovoj matrici je nacin zbrajanja tj. spajanja ulaza sklopa na ulaze sumatora a i dalje na izlaze - u biti se koristi kod bloka sum_matrix(_v3)
+    matVariable_CE_E = vhArchInputToArray(fileName_CE_E, out_E_num, in_E_num)
+    matVariable_CE_H = vhArchInputToArray(fileName_CE_H, out_H_num, in_H_num)
 
 
-#snimam sve u fileove sa bazom naziva fileName i onda dodajem nastavke ovisno sto snimam
-#konvertiram u dekadski brojevni sustav
-inputArrayDec_CE_E = []
-shiftArrayDec_CE_E = []
-inputArrayDec_CE_H = []
-shiftArrayDec_CE_H = []
-decodedInputArrayDec_CE_E = []
-decodedInputArrayDec_CE_H = []
-calibtratedInputArrayDec_CE_E = []
-calibtratedInputArrayDec_CE_H = []
-for i in range(len(inputArray_CE_E)):
-    inputArrayDec_CE_E.append(int(inputArray_CE_E[i],2))
-    shiftArrayDec_CE_E.append(int(shiftArray_CE_E[i],2))
-    decodedInputArrayDec_CE_E.append(int(decodedInputArray_CE_E[i],2))
-    calibtratedInputArrayDec_CE_E.append(int(calibtratedInputArray_CE_E[i],2))
-for i in range(len(inputArray_CE_H)):
-    inputArrayDec_CE_H.append(int(inputArray_CE_H[i],2))
-    shiftArrayDec_CE_H.append(int(shiftArray_CE_H[i],2))
-    decodedInputArrayDec_CE_H.append(int(decodedInputArray_CE_H[i],2))
-    calibtratedInputArrayDec_CE_H.append(int(calibtratedInputArray_CE_H[i],2))
+    #ovo funkcija nije nužna za ispravan rad sklopa, ali provjerava da li su sve osmine za svaki od 256 ulaza raspojdeljene po izlazima, i ako nisu prekida izvođene i javlja grešku
+    #funkcija za dodatnu provjeru ispravnosti arhitekture (prvenstveno MATLAB skripte, ali i funkcije vhArchToArray koja je ovdje napisana)
+    #vhArchValidation(matVariable_CE_E, out_E_num, in_E_num)  #ZA SADA IZOSTAVLJAM JER MI SE ARHITEKTURA PROMIJENILA PA MI PRETPOSTAVKE VISE NE VRIJEDE I OVO FAILA
+    #vhArchValidation(matVariable_CE_H, out_E_num, in_E_num)
 
-summedValuesDec_CE_E = []
-summedValuesDec_CE_H = []
-trimmedSumsDec_CE_E = []
-outputValuesDec_CE_E = []
-trimmedSumsDec_CE_H = []
-outputValuesDec_CE_H = []
-for i in range(len(summedValues_CE_E)):
-    summedValuesDec_CE_E.append(int(summedValues_CE_E[i],2))
-    trimmedSumsDec_CE_E.append(int(trimmedSums_CE_E[i],2))
-    outputValuesDec_CE_E.append(int(outputValues_CE_E[i],2))
-for i in range(len(summedValues_CE_H)):
-    summedValuesDec_CE_H.append(int(summedValues_CE_H[i],2))
-    trimmedSumsDec_CE_H.append(int(trimmedSums_CE_H[i],2))
-    outputValuesDec_CE_H.append(int(outputValues_CE_H[i],2))
+    #generiram ulaze 
+    #glavni ulaz je 256 8-bitnih ulaza (5 bitova je eksponent a 3 bita su mantisa) - ove stvari trebam snimiti u datoteku da Ante zna ponoviti test
+    inputArray_CE_E = generateInputEnergies(in_E_num,8,25,3)
+    inputArray_CE_H = generateInputEnergies(in_H_num,8,25,3)
+
+    #generiram shift bitove
+    shiftArray_CE_E = generateInputShifts(in_E_num,2)
+    shiftArray_CE_H = generateInputShifts(in_H_num,2)
+
+    #sada radim Float2Int prekodiranje
+    decodedInputArray_CE_E = f2int(inputArray_CE_E, 8, 5, 25)
+    decodedInputArray_CE_H = f2int(inputArray_CE_H, 8, 5, 25)
+
+    #sada radim kalibraciju odnosno shiftanje
+    calibtratedInputArray_CE_E = calibration(decodedInputArray_CE_E, shiftArray_CE_E, 28)
+    calibtratedInputArray_CE_H = calibration(decodedInputArray_CE_H, shiftArray_CE_H, 28)
+
+    #sada radim sumaciju 
+    summedValues_CE_E = sumMatrixNew(calibtratedInputArray_CE_E, matVariable_CE_E, 32)
+    summedValues_CE_H = sumMatrixNew(calibtratedInputArray_CE_H, matVariable_CE_H, 32)
+
+    #sada radim trimming
+    trimmedSums_CE_E = trimmSummationsNew(summedValues_CE_E, 19)
+    trimmedSums_CE_H = trimmSummationsNew(summedValues_CE_H, 19)
+
+    #sada radim pretvaranje u float
+    outputValues_CE_E = int2f(trimmedSums_CE_E, 4, 8)
+    outputValues_CE_H = int2f(trimmedSums_CE_H, 4, 8)
 
 
-#***********SNIMAM ZA CE_E*********************
-#with open(fileName_CE_E + '_inputData_CE_E' + '.txt', 'w') as f:
-#    f.writelines("%s" %line for line in inputArrayDec_CE_E)
+    #snimam sve u fileove sa bazom naziva fileName i onda dodajem nastavke ovisno sto snimam
+    #konvertiram u dekadski brojevni sustav
+    inputArrayDec_CE_E = []
+    shiftArrayDec_CE_E = []
+    inputArrayDec_CE_H = []
+    shiftArrayDec_CE_H = []
+    decodedInputArrayDec_CE_E = []
+    decodedInputArrayDec_CE_H = []
+    calibtratedInputArrayDec_CE_E = []
+    calibtratedInputArrayDec_CE_H = []
+    for i in range(len(inputArray_CE_E)):
+        inputArrayDec_CE_E.append(int(inputArray_CE_E[i],2))
+        shiftArrayDec_CE_E.append(int(shiftArray_CE_E[i],2))
+        decodedInputArrayDec_CE_E.append(int(decodedInputArray_CE_E[i],2))
+        calibtratedInputArrayDec_CE_E.append(int(calibtratedInputArray_CE_E[i],2))
+    for i in range(len(inputArray_CE_H)):
+        inputArrayDec_CE_H.append(int(inputArray_CE_H[i],2))
+        shiftArrayDec_CE_H.append(int(shiftArray_CE_H[i],2))
+        decodedInputArrayDec_CE_H.append(int(decodedInputArray_CE_H[i],2))
+        calibtratedInputArrayDec_CE_H.append(int(calibtratedInputArray_CE_H[i],2))
 
-#ulazni podaci
-"""
-with open(fileName_CE_E + '_inputData_CE_E_1' + '.txt', 'w') as f:
-    for i in range (len(inputArrayDec_CE_E)):
-        if i == len(inputArrayDec_CE_E)-1:
-            f.write(str(inputArrayDec_CE_E[i]))
-        else:
-            f.write(str(inputArrayDec_CE_E[i]) + ', \n')
-            
-#shift bitovi
-with open(fileName_CE_E + '_shiftData_CE_E_1' + '.txt', 'w') as f:
-    for i in range (len(shiftArrayDec_CE_E)):
-        if i == len(shiftArrayDec_CE_E)-1:
-            f.write(str(shiftArrayDec_CE_E[i]))
-        else:
-            f.write(str(shiftArrayDec_CE_E[i]) + ', \n')
-
-#dekodirani podaci
-with open(fileName_CE_E + '_decodedData_CE_E_1' + '.txt', 'w') as f:
-    for i in range (len(decodedInputArrayDec_CE_E)):
-        if i == len(decodedInputArrayDec_CE_E)-1:
-            f.write(str(decodedInputArrayDec_CE_E[i]))
-        else:
-            f.write(str(decodedInputArrayDec_CE_E[i]) + ', \n')
-
-#kalibrirani podaci
-with open(fileName_CE_E + '_calibratedData_CE_E_1' + '.txt', 'w') as f:
-    for i in range (len(calibtratedInputArrayDec_CE_E)):
-        if i == len(calibtratedInputArrayDec_CE_E)-1:
-            f.write(str(calibtratedInputArrayDec_CE_E[i]))
-        else:
-            f.write(str(calibtratedInputArrayDec_CE_E[i]) + ', \n')
-
-#sumirani podaci
-with open(fileName_CE_E + '_sumsData_CE_E_1' + '.txt', 'w') as f:
-    for i in range (len(summedValuesDec_CE_E)):
-        if i == len(summedValuesDec_CE_E)-1:
-            f.write(str(summedValuesDec_CE_E[i]))
-        else:
-            f.write(str(summedValuesDec_CE_E[i]) + ', \n')
+    summedValuesDec_CE_E = []
+    summedValuesDec_CE_H = []
+    trimmedSumsDec_CE_E = []
+    outputValuesDec_CE_E = []
+    trimmedSumsDec_CE_H = []
+    outputValuesDec_CE_H = []
+    for i in range(len(summedValues_CE_E)):
+        summedValuesDec_CE_E.append(int(summedValues_CE_E[i],2))
+        trimmedSumsDec_CE_E.append(int(trimmedSums_CE_E[i],2))
+        outputValuesDec_CE_E.append(int(outputValues_CE_E[i],2))
+    for i in range(len(summedValues_CE_H)):
+        summedValuesDec_CE_H.append(int(summedValues_CE_H[i],2))
+        trimmedSumsDec_CE_H.append(int(trimmedSums_CE_H[i],2))
+        outputValuesDec_CE_H.append(int(outputValues_CE_H[i],2))
 
 
-#podaci s totalnom energijom - trenutno ne snimam
-#with open(fileName + '_totalData' + '.txt', 'w') as f:
-#    for i in range (len(totalSumValuesJointDec)):
-#        if i == len(trimmedSumsDec)-1:
-#            f.write(str(totalSumValuesJointDec[i]))
-#        else:
-#            f.write(str(totalSumValuesJointDec[i]) + ',')
+    #***********SNIMAM ZA CE_E*********************
+    #with open(fileName_CE_E + '_inputData_CE_E' + '.txt', 'w') as f:
+    #    f.writelines("%s" %line for line in inputArrayDec_CE_E)
 
-#trimani podaci
-with open(fileName_CE_E + '_trimData_CE_E_1' + '.txt', 'w') as f:
-    for i in range (len(trimmedSumsDec_CE_E)):
-        if i == len(trimmedSumsDec_CE_E)-1:
-            f.write(str(trimmedSumsDec_CE_E[i]))
-            #f.write(str(trimmedSums_CE_E[i]))
-        else:
-            f.write(str(trimmedSumsDec_CE_E[i]) + ', \n')
-            #f.write(str(trimmedSums_CE_E[i]) + ', \n')
-"""
-#izlazni podaci
-with open(fileName_CE_E + '_outputData_CE_E_1' + '.txt', 'w') as f:
-    for i in range (len(outputValuesDec_CE_E)):
-        if i == len(outputValuesDec_CE_E)-1:
-            f.write(str(outputValuesDec_CE_E[i]))
-        else:
-            f.write(str(outputValuesDec_CE_E[i]) + ', \n')
+    #ulazni podaci
+    """
+    with open(fileName_CE_E + '_inputData_CE_E_1' + '.txt', 'w') as f:
+        for i in range (len(inputArrayDec_CE_E)):
+            if i == len(inputArrayDec_CE_E)-1:
+                f.write(str(inputArrayDec_CE_E[i]))
+            else:
+                f.write(str(inputArrayDec_CE_E[i]) + ', \n')
+                
+    #shift bitovi
+    with open(fileName_CE_E + '_shiftData_CE_E_1' + '.txt', 'w') as f:
+        for i in range (len(shiftArrayDec_CE_E)):
+            if i == len(shiftArrayDec_CE_E)-1:
+                f.write(str(shiftArrayDec_CE_E[i]))
+            else:
+                f.write(str(shiftArrayDec_CE_E[i]) + ', \n')
+
+    #dekodirani podaci
+    with open(fileName_CE_E + '_decodedData_CE_E_1' + '.txt', 'w') as f:
+        for i in range (len(decodedInputArrayDec_CE_E)):
+            if i == len(decodedInputArrayDec_CE_E)-1:
+                f.write(str(decodedInputArrayDec_CE_E[i]))
+            else:
+                f.write(str(decodedInputArrayDec_CE_E[i]) + ', \n')
+
+    #kalibrirani podaci
+    with open(fileName_CE_E + '_calibratedData_CE_E_1' + '.txt', 'w') as f:
+        for i in range (len(calibtratedInputArrayDec_CE_E)):
+            if i == len(calibtratedInputArrayDec_CE_E)-1:
+                f.write(str(calibtratedInputArrayDec_CE_E[i]))
+            else:
+                f.write(str(calibtratedInputArrayDec_CE_E[i]) + ', \n')
+
+    #sumirani podaci
+    with open(fileName_CE_E + '_sumsData_CE_E_1' + '.txt', 'w') as f:
+        for i in range (len(summedValuesDec_CE_E)):
+            if i == len(summedValuesDec_CE_E)-1:
+                f.write(str(summedValuesDec_CE_E[i]))
+            else:
+                f.write(str(summedValuesDec_CE_E[i]) + ', \n')
 
 
-#***********SNIMAM ZA CE_H*********************
-#with open(fileName_CE_E + '_inputData_CE_E' + '.txt', 'w') as f:
-#    f.writelines("%s" %line for line in inputArrayDec_CE_E)
+    #podaci s totalnom energijom - trenutno ne snimam
+    #with open(fileName + '_totalData' + '.txt', 'w') as f:
+    #    for i in range (len(totalSumValuesJointDec)):
+    #        if i == len(trimmedSumsDec)-1:
+    #            f.write(str(totalSumValuesJointDec[i]))
+    #        else:
+    #            f.write(str(totalSumValuesJointDec[i]) + ',')
 
-#ulazni podaci
-"""
-with open(fileName_CE_H + '_inputData_CE_H_1' + '.txt', 'w') as f:
-    for i in range (len(inputArrayDec_CE_H)):
-        if i == len(inputArrayDec_CE_H)-1:
-            f.write(str(inputArrayDec_CE_H[i]))
-        else:
-            f.write(str(inputArrayDec_CE_H[i]) + ', \n')
+    #trimani podaci
+    with open(fileName_CE_E + '_trimData_CE_E_1' + '.txt', 'w') as f:
+        for i in range (len(trimmedSumsDec_CE_E)):
+            if i == len(trimmedSumsDec_CE_E)-1:
+                f.write(str(trimmedSumsDec_CE_E[i]))
+                #f.write(str(trimmedSums_CE_E[i]))
+            else:
+                f.write(str(trimmedSumsDec_CE_E[i]) + ', \n')
+                #f.write(str(trimmedSums_CE_E[i]) + ', \n')
+    """
+    #izlazni podaci -spremamo ih u mapu outputs
+    with open('../outputs/' + fileName_CE_E + '_outputData_CE_E_1' + '.txt', 'w') as f: 
+        for i in range (len(outputValuesDec_CE_E)):
+            if i == len(outputValuesDec_CE_E)-1:
+                f.write(str(outputValuesDec_CE_E[i]))
+            else:
+                f.write(str(outputValuesDec_CE_E[i]) + ', \n')
 
-#shift bitovi
-with open(fileName_CE_H + '_shiftData_CE_H_1' + '.txt', 'w') as f:
-    for i in range (len(shiftArrayDec_CE_H)):
-        if i == len(shiftArrayDec_CE_H)-1:
-            f.write(str(shiftArrayDec_CE_H[i]))
-        else:
-            f.write(str(shiftArrayDec_CE_H[i]) + ', \n')
 
-#dekodirani podaci
-with open(fileName_CE_H + '_decodedData_CE_H_1' + '.txt', 'w') as f:
-    for i in range (len(decodedInputArrayDec_CE_H)):
-        if i == len(decodedInputArrayDec_CE_H)-1:
-            f.write(str(decodedInputArrayDec_CE_H[i]))
+    #***********SNIMAM ZA CE_H*********************
+    #with open(fileName_CE_E + '_inputData_CE_E' + '.txt', 'w') as f:
+    #    f.writelines("%s" %line for line in inputArrayDec_CE_E)
 
-        else:
-            f.write(str(decodedInputArrayDec_CE_H[i]) + ', \n')
+    #ulazni podaci
+    """
+    with open(fileName_CE_H + '_inputData_CE_H_1' + '.txt', 'w') as f:
+        for i in range (len(inputArrayDec_CE_H)):
+            if i == len(inputArrayDec_CE_H)-1:
+                f.write(str(inputArrayDec_CE_H[i]))
+            else:
+                f.write(str(inputArrayDec_CE_H[i]) + ', \n')
 
-#kalibrirani podaci
-with open(fileName_CE_H + '_calibratedData_CE_H_1' + '.txt', 'w') as f:
-    for i in range (len(calibtratedInputArrayDec_CE_H)):
-        if i == len(calibtratedInputArrayDec_CE_H)-1:
-            f.write(str(calibtratedInputArrayDec_CE_H[i]))
-        else:
-            f.write(str(calibtratedInputArrayDec_CE_H[i]) + ', \n')
+    #shift bitovi
+    with open(fileName_CE_H + '_shiftData_CE_H_1' + '.txt', 'w') as f:
+        for i in range (len(shiftArrayDec_CE_H)):
+            if i == len(shiftArrayDec_CE_H)-1:
+                f.write(str(shiftArrayDec_CE_H[i]))
+            else:
+                f.write(str(shiftArrayDec_CE_H[i]) + ', \n')
 
-#sumirani podaci
-with open(fileName_CE_H + '_sumsData_CE_H_1' + '.txt', 'w') as f:
-    for i in range (len(summedValuesDec_CE_H)):
-        if i == len(summedValuesDec_CE_H)-1:
-            f.write(str(summedValuesDec_CE_H[i]))
-        else:
-            f.write(str(summedValuesDec_CE_H[i]) + ', \n')
+    #dekodirani podaci
+    with open(fileName_CE_H + '_decodedData_CE_H_1' + '.txt', 'w') as f:
+        for i in range (len(decodedInputArrayDec_CE_H)):
+            if i == len(decodedInputArrayDec_CE_H)-1:
+                f.write(str(decodedInputArrayDec_CE_H[i]))
 
-#podaci s totalnom energijom - trenutno ne snimam
-#with open(fileName + '_totalData' + '.txt', 'w') as f:
-#    for i in range (len(totalSumValuesJointDec)):
-#        if i == len(trimmedSumsDec)-1:
-#            f.write(str(totalSumValuesJointDec[i]))
-#            #f.write(str(totalSumValuesJoint[i]))
-#        else:
-#            f.write(str(totalSumValuesJointDec[i]) + ',')
-#            #f.write(str(totalSumValuesJoint[i]) + ', \n')
+            else:
+                f.write(str(decodedInputArrayDec_CE_H[i]) + ', \n')
 
-#trimani podaci
-with open(fileName_CE_H + '_trimData_CE_H_1' + '.txt', 'w') as f:
-    for i in range (len(trimmedSumsDec_CE_H)):
-        if i == len(trimmedSumsDec_CE_H)-1:
-            f.write(str(trimmedSumsDec_CE_H[i]))
-        else:
-            f.write(str(trimmedSumsDec_CE_H[i]) + ', \n')
-"""
-#izlazni podaci
-with open(fileName_CE_H + '_outputData_CE_H_1' + '.txt', 'w') as f:
-    for i in range (len(outputValuesDec_CE_H)):
-        if i == len(outputValuesDec_CE_H)-1:
-            f.write(str(outputValuesDec_CE_H[i]))
-        else:
-            f.write(str(outputValuesDec_CE_H[i]) + ', \n')
+    #kalibrirani podaci
+    with open(fileName_CE_H + '_calibratedData_CE_H_1' + '.txt', 'w') as f:
+        for i in range (len(calibtratedInputArrayDec_CE_H)):
+            if i == len(calibtratedInputArrayDec_CE_H)-1:
+                f.write(str(calibtratedInputArrayDec_CE_H[i]))
+            else:
+                f.write(str(calibtratedInputArrayDec_CE_H[i]) + ', \n')
+
+    #sumirani podaci
+    with open(fileName_CE_H + '_sumsData_CE_H_1' + '.txt', 'w') as f:
+        for i in range (len(summedValuesDec_CE_H)):
+            if i == len(summedValuesDec_CE_H)-1:
+                f.write(str(summedValuesDec_CE_H[i]))
+            else:
+                f.write(str(summedValuesDec_CE_H[i]) + ', \n')
+
+    #podaci s totalnom energijom - trenutno ne snimam
+    #with open(fileName + '_totalData' + '.txt', 'w') as f:
+    #    for i in range (len(totalSumValuesJointDec)):
+    #        if i == len(trimmedSumsDec)-1:
+    #            f.write(str(totalSumValuesJointDec[i]))
+    #            #f.write(str(totalSumValuesJoint[i]))
+    #        else:
+    #            f.write(str(totalSumValuesJointDec[i]) + ',')
+    #            #f.write(str(totalSumValuesJoint[i]) + ', \n')
+
+    #trimani podaci
+    with open(fileName_CE_H + '_trimData_CE_H_1' + '.txt', 'w') as f:
+        for i in range (len(trimmedSumsDec_CE_H)):
+            if i == len(trimmedSumsDec_CE_H)-1:
+                f.write(str(trimmedSumsDec_CE_H[i]))
+            else:
+                f.write(str(trimmedSumsDec_CE_H[i]) + ', \n')
+    """
+    #izlazni podaci
+    with open('../outputs/' + fileName_CE_H + '_outputData_CE_H_1' + '.txt', 'w') as f:
+        for i in range (len(outputValuesDec_CE_H)):
+            if i == len(outputValuesDec_CE_H)-1:
+                f.write(str(outputValuesDec_CE_H[i]))
+            else:
+                f.write(str(outputValuesDec_CE_H[i]) + ', \n')
