@@ -62,9 +62,8 @@ def plot_bins_from_geojson(geojson_file, output_dir,part = 0): #part - dio detek
                 colorbar = plt.cm.ScalarMappable(norm=norm, cmap=cmap)
                 colorbar.set_array([])
                 fig = plt.figure(figsize=(8, 6))
-                i = 1
-                eta = 19
-                phi = 53
+                eta = 19 #početna koordinata crtanja
+                phi = 53 
                 for idx, bin_geometry in enumerate(bins):
                     if [eta,phi] in coord[part][0]:
                         indeks = coord[part][0].index([eta,phi])
@@ -74,7 +73,6 @@ def plot_bins_from_geojson(geojson_file, output_dir,part = 0): #part - dio detek
                     plt.gca().set_aspect('equal', adjustable='datalim')
 
                     #jednostavni algoritam koji prati koordinatu koju se trenutno crta
-                    i += 1
                     eta -= 1
                     if eta < 0:
                         phi -= 1
@@ -100,36 +98,24 @@ def plot_bins_from_geojson(geojson_file, output_dir,part = 0): #part - dio detek
                 add_colorbar("out",max(coord[part][1])) #dodajemo colorbar na sve slike koje se nalaze u mapi out
 
 def add_colorbar(path,color_max):
-
     # Iteracija kroz slike u mapi A
     for filename in os.listdir(path):
         if filename.endswith(".png") and "_colorbar" not in filename: #Provjera ekstenzije slike te da vec nema colorbar
             # Učitavanje slike iz mape A
             img = plt.imread(os.path.join(path, filename))
-
-            # Stvaranje subplota
             fig, ax = plt.subplots(figsize=(15, 10))
-
-            # Prikaz slike na lijevoj strani
             ax.imshow(img)
             ax.axis('off')  # Isključivanje oznaka osi
-
             # Stvaranje colorbara na desnoj strani
             divider = make_axes_locatable(ax)
-            cax = divider.append_axes("right", size="5%", pad=0.04 )  # Promijenite veličinu colorbara ovdje
-
-            # Postavljanje normiranja za colorbar
-            norm = Normalize(vmin=0, vmax=color_max)  # Pretpostavljamo da su vrijednosti piksela u rasponu od 0 do 255
-
-            # Dodavanje colorbara
+            cax = divider.append_axes("right", size="5%", pad=0.04 ) 
+            norm = Normalize(vmin=0, vmax=color_max) #raspon colorbar
+            
             cbar = plt.colorbar(plt.cm.ScalarMappable(norm=norm, cmap='viridis'), cax=cax,fraction=0.046, aspect=1)
             cbar.set_label('Vrijednosti sume')
-
-            # Spremanje subplota u mapu B
             filename = filename.replace(".png", "")
             plt.savefig(os.path.join(path, filename + '_colorbar.png'), bbox_inches='tight')
-            
-            # Zatvaranje subplota
+        
             plt.close() 
             
 plot_bins_from_geojson("towers_bins_only_vertices.geojson","out",0)
