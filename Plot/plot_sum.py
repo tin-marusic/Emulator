@@ -66,6 +66,8 @@ def plot_bins_from_geojson(geojson_file, output_dir,part = 0): #part - dio detek
                 phi = 53 
                 for idx, bin_geometry in enumerate(bins):
                     if [eta,phi] in coord[part][0]:
+                        if coord[part][0].count([eta,phi]) > 1:
+                            print(f"Preklapanje na koordinati {eta,phi}")
                         indeks = coord[part][0].index([eta,phi])
                         plt.fill(*bin_geometry.exterior.xy, color=colorbar.to_rgba(coord[part][1][indeks]))
                     else:
